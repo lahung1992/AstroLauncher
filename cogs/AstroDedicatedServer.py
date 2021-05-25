@@ -142,7 +142,7 @@ class AstroDedicatedServer():
                         mdFile = "metadata.json"
                         md = PP.List(mdFile)
                         if mdFile in md:
-                            ppData = PP.Unpack(mdFile).Data
+                            ppData = PP.Unpack(mdFile).Data.decode()
                             self.pakList.append({os.path.basename(f): ppData})
                 except:
                     pass
@@ -177,7 +177,7 @@ class AstroDedicatedServer():
 
     def getSaves(self):
         try:
-            if not self.AstroRCON.connected:
+            if self.AstroRCON == None or not self.AstroRCON.connected:
                 return False
             tempSaveGames = {}
             while tempSaveGames == {} and 'activeSaveName' not in tempSaveGames:
@@ -214,7 +214,7 @@ class AstroDedicatedServer():
             pass
 
     def saveGame(self, name=None):
-        if not self.AstroRCON.connected:
+        if self.AstroRCON == None or not self.AstroRCON.connected:
             return False
         self.setStatus("saving")
         self.busy = "Saving"
@@ -225,7 +225,7 @@ class AstroDedicatedServer():
         self.busy = False
 
     def newSaveGame(self):
-        if not self.AstroRCON.connected:
+        if self.AstroRCON == None or not self.AstroRCON.connected:
             return False
         self.setStatus("newsave")
         self.busy = "NewSave"
@@ -237,7 +237,7 @@ class AstroDedicatedServer():
         self.busy = False
 
     def loadSaveGame(self, saveData):
-        if not self.AstroRCON.connected:
+        if self.AstroRCON == None or not self.AstroRCON.connected:
             return False
         self.setStatus("loadsave")
         self.busy = "LoadSave"
@@ -250,7 +250,7 @@ class AstroDedicatedServer():
         self.busy = False
 
     def deleteSaveGame(self, saveData):
-        if not self.AstroRCON.connected:
+        if self.AstroRCON == None or not self.AstroRCON.connected:
             return False
         name = saveData['name']
         if pathvalidate.is_valid_filename(name):
@@ -266,7 +266,7 @@ class AstroDedicatedServer():
         self.busy = False
 
     def renameSaveGame(self, oldSave, newName):
-        if not self.AstroRCON.connected:
+        if self.AstroRCON == None or not self.AstroRCON.connected:
             return False
         self.setStatus("renamesave")
         self.busy = "RenameSave"
@@ -300,17 +300,17 @@ class AstroDedicatedServer():
         self.busy = False
 
     def shutdownServer(self):
-        if not self.AstroRCON.connected:
+        if self.AstroRCON == None or not self.AstroRCON.connected:
             return False
         self.setStatus("shutdown")
         self.busy = "Shutdown"
         # time.sleep(1)
         self.AstroRCON.DSServerShutdown()
         self.DSServerStats = None
-        AstroLogging.logPrint("Server shutdown.")
+        AstroLogging.logPrint("Server shutdown.", ovrDWHL=True)
 
     def save_and_shutdown(self):
-        if not self.AstroRCON.connected:
+        if self.AstroRCON == None or not self.AstroRCON.connected:
             return False
         self.saveGame()
         self.busy = "S&Shutdown"
@@ -325,7 +325,7 @@ class AstroDedicatedServer():
     def quickToggleWhitelist(self):
         '''Toggling the whitelist is good for forcing the server to put every player who has joined the current save's Guid into the INI'''
 
-        if not self.AstroRCON.connected:
+        if self.AstroRCON == None or not self.AstroRCON.connected:
             return False
         wLOn = self.settings.DenyUnlistedPlayers
         self.AstroRCON.DSSetDenyUnlisted(not wLOn)
@@ -338,6 +338,8 @@ class AstroDedicatedServer():
                 gxAuth = None
                 while gxAuth is None:
                     try:
+                        AstroLogging.logPrint(
+                            "Generating new xAuth...", "debug")
                         gxAuth = AstroAPI.generate_XAUTH(
                             self.settings.ServerGuid)
                     except:
@@ -348,6 +350,7 @@ class AstroDedicatedServer():
                 self.lastXAuth += datetime.timedelta(seconds=20)
 
     def server_loop(self):
+        # AstroLogging.logPrint("Starting server_loop: 2", "debug")
         while True:
             # Ensure RCON is connected
             try:
@@ -357,32 +360,63 @@ class AstroDedicatedServer():
             except:
                 pass
             while not self.AstroRCON.connected:
+                # AstroLogging.logPrint("Waiting on AstroRCON to connect", "debug")
                 time.sleep(0.1)
             ###########################
+
+            # AstroLogging.logPrint("Running through another loop...", "debug")
+            now = datetime.datetime.now()
 
             if not self.launcher.launcherConfig.DisableBackupRetention:
                 self.launcher.backup_retention()
 
+            # AstroLogging.logPrint("Server_loop section: 1", "debug")
             self.launcher.save_reporting()
+
+            # AstroLogging.logPrint("Server_loop section: 2", "debug")
             if self.launcher.launcherConfig.EnableAutoRestart:
-                if (((datetime.datetime.now() - self.lastRestart).total_seconds() > 60) and ((self.nextRestartTime - datetime.datetime.now()).total_seconds() < 0)):
+                if (((now - self.lastRestart).total_seconds() > 60) and ((self.nextRestartTime - now).total_seconds() < 0)):
                     AstroLogging.logPrint(
                         "Preparing to shutdown the server.")
-                    self.lastRestart = datetime.datetime.now()
+                    self.lastRestart = now
                     self.nextRestartTime += datetime.timedelta(
                         hours=self.launcher.launcherConfig.AutoRestartEveryHours)
                     self.save_and_shutdown()
 
+            # AstroLogging.logPrint("Server_loop section: 3", "debug")
             if self.process.poll() is not None:
                 AstroLogging.logPrint(
                     "Server was closed. Restarting..")
                 return self.launcher.start_server()
 
+            # AstroLogging.logPrint("Server_loop section: 4", "debug")
             self.getXauth()
 
-            if self.lastHeartbeat is None or (datetime.datetime.now() - self.lastHeartbeat).total_seconds() > 30:
+
+            
+            # AstroLogging.logPrint("Server_loop section: 5", "debug")
+            # AstroLogging.logPrint(f"self.lastHeartbeat: {self.lastHeartbeat}", "debug")
+            # try:
+            #     AstroLogging.logPrint(f"total_seconds: {(now - self.lastHeartbeat).total_seconds()}", "debug")
+            # except:
+            #     pass
+            if self.lastHeartbeat is None or (now - self.lastHeartbeat).total_seconds() > 30:
+                
+                try:
+                    needs_update, latest_version = self.launcher.check_for_server_update(serverStart=True, check_only=True)
+
+                    if needs_update and self.launcher.launcherConfig.AutoUpdateServerSoftware:
+                        self.save_and_shutdown()
+                        self.launcher.update_server(latest_version)
+                        continue
+                except:
+                    pass
+
                 serverData = []
                 try:
+
+                    AstroLogging.logPrint(
+                        "Getting Server data for Heartbeat", "debug")
                     serverData = (AstroAPI.get_server(
                         self.ipPortCombo, self.launcher.headers))['data']['Games']
                     if len(serverData) > 0:
@@ -394,35 +428,50 @@ class AstroDedicatedServer():
                     "ServerType": ("AstroLauncherEXE" if self.launcher.isExecutable else "AstroLauncherPy") + f" {self.launcher.version}",
                     "ServerPaks": self.pakList
                 }}
+
+                AstroLogging.logPrint("Attempting Heartbeat...", "debug")
                 hbStatus = AstroAPI.heartbeat_server(
                     self.serverData, self.launcher.headers, {"serverName": json.dumps(hbServerName)})
 
-                hbTryCount = 0
+                hbTryCount = 1
                 while hbStatus['status'] != "OK":
-                    if hbTryCount > 3:
+                    hbrs = self.launcher.launcherConfig.HeartBeatFailRestartServer
+                    if hbrs != 0 and hbTryCount > hbrs:
                         self.kill_server(
                             reason="Server was unable to heartbeat, restarting...",
                             save=True, killLauncher=False)
                         time.sleep(5)
                         return self.launcher.start_server()
+                    if hbTryCount > 1:
+                        time.sleep(5*hbTryCount)
                     self.getXauth()
-                    hbTryCount += 1
                     try:
                         hbStatus = AstroAPI.heartbeat_server(
                             self.serverData, self.launcher.headers, {"serverName": json.dumps(hbServerName)})
+                        AstroLogging.logPrint(
+                            f"hbStatus: {hbStatus}", "debug")
+                        if 'status' in hbStatus and hbStatus['status'] == "Error":
+                            raise "HeartBeatError"
+
                     except:
                         AstroLogging.logPrint(
-                            f"Failed to heartbeat server on attempt: {hbTryCount}")
-                        time.sleep(5*hbTryCount)
+                            f"Failed to heartbeat server on attempt: {hbTryCount}", msgType="warning")
+                    hbTryCount += 1
+
+                if hbTryCount > 1:
+                    AstroLogging.logPrint(
+                        "Connection reestablished! Successful heartbeat!")
 
                 self.lastHeartbeat = datetime.datetime.now()
 
+            # AstroLogging.logPrint("Server_loop section: 6", "debug")
             if self.launcher.webServer is not None:
                 self.setStatus("ready")
                 self.busy = "getSavesInLoop"
                 self.getSaves()
                 self.busy = False
 
+            # AstroLogging.logPrint("Server_loop section: 7", "debug")
             self.setStatus("ready")
             serverStats = self.AstroRCON.DSServerStatistics()
             if serverStats is not None and 'averageFPS' in serverStats:
@@ -435,6 +484,7 @@ class AstroDedicatedServer():
                             f"Server FPS: {round(self.DSServerStats['averageFPS'])}")
                 self.oldServerStats = self.DSServerStats
 
+            # AstroLogging.logPrint("Server_loop section: 8", "debug")
             self.setStatus("ready")
             playerList = self.AstroRCON.DSListPlayers()
             if playerList is not None and 'playerInfo' in playerList:
@@ -450,7 +500,7 @@ class AstroDedicatedServer():
                         self.stripPlayers.remove(playerDif)
 
                     AstroLogging.logPrint(
-                        f"Player joining: {playerDif}")
+                        f"Player joining: {playerDif}", ovrDWHL=True, dwet="j")
 
                     # Add player to INI with Unlisted category if not exists or is Pending
                     pp = list(self.settings.PlayerProperties)
@@ -466,10 +516,12 @@ class AstroDedicatedServer():
                         set(self.onlinePlayers) - set(curPlayers))[0]
                     self.onlinePlayers = curPlayers
                     AstroLogging.logPrint(
-                        f"Player left: {playerDif}")
+                        f"Player left: {playerDif}", ovrDWHL=True, dwet="l")
 
                 self.players['playerInfo'] = [
                     x for x in playerList['playerInfo'] if x['playerName'] not in self.stripPlayers]
+
+            # AstroLogging.logPrint("Server_loop section: 9", "debug")
             time.sleep(
                 self.launcher.launcherConfig.ServerStatusFrequency)
 
@@ -486,8 +538,11 @@ class AstroDedicatedServer():
                 # reg_srvr['LobbyID']
                 AstroLogging.logPrint(
                     f"Deregistering {counter+1}/{len(servers_registered)}...")
-                AstroAPI.deregister_server(
+                drg_status = AstroAPI.deregister_server(
                     reg_srvr['LobbyID'], self.launcher.headers)
+                if 'status' in drg_status and drg_status['status'] == "Error":
+                    AstroLogging.logPrint(
+                        "Trouble deregistering server. Multiple servers may still be registered.", msgType="warning")
             AstroLogging.logPrint("All servers deregistered")
             time.sleep(1)
             return [x['LobbyID'] for x in servers_registered]

@@ -1,13 +1,16 @@
 console.log("Hi there! Feel to explore the code!");
 //let apiURL = 'http://127.0.0.1:80/api'
-let apiURL = "/api";
+let baseURL = location.pathname;
+let apiURL = baseURL + "api";
 let playersTableOriginal = $("#onlinePlayersTable").html();
 let saveGamesTableOriginal = $("#saveGamesTable").html();
 
 let webSocket = null;
 const createWebSocket = async () => {
     let WSprotocol = location.protocol == "https:" ? "wss" : "ws";
-    webSocket = new WebSocket(WSprotocol + "://" + location.host + "/ws");
+    webSocket = new WebSocket(
+        WSprotocol + "://" + location.host + baseURL + "ws"
+    );
     webSocket.onmessage = function (evt) {
         tick(evt.data);
     };
@@ -33,6 +36,7 @@ let oldSaves = {};
 let oViewCount = "";
 let oInstanceID = "";
 let isAdmin = false;
+let isRconReady = false;
 
 const statusMsg = (msg) => {
     if (oldMsg != msg) {
@@ -116,7 +120,7 @@ const tick = async (data) => {
         if (oInstanceID === "") {
             oInstanceID = data.instanceID;
         }
-
+        isRconReady = data.rready;
         isAdmin = data.admin;
         if (
             ($("#console").length && !isAdmin) ||
@@ -168,6 +172,22 @@ const tick = async (data) => {
                         parts[0] +
                         //"<span style='color: green;'>INFO</span>" +
                         parts[1];
+                } else if (entry.includes("CMD")) {
+                    levelType = "CMD";
+                    let parts = entry.split("CMD");
+                    content =
+                        "<i class='fas fa-terminal iconCMD'></i> " +
+                        parts[0] +
+                        //"<span style='color: cyan;'>CHAT</span>" +
+                        parts[1];
+                } else if (entry.includes("CHAT")) {
+                    levelType = "CHAT";
+                    let parts = entry.split("CHAT");
+                    content =
+                        "<i class='fas fa-comments iconChat'></i> " +
+                        parts[0] +
+                        //"<span style='color: cyan;'>CHAT</span>" +
+                        parts[1];
                 } else if (entry.includes("WARNING")) {
                     let parts = entry.split("WARNING");
                     levelType = "WARNING";
@@ -193,6 +213,9 @@ const tick = async (data) => {
         }
 
         s = data.settings;
+        if (data.server_version) {
+            $("#serverVersion").text(DOMPurify.sanitize(data.server_version));
+        }
         if (data.stats) {
             $("#hWL").text(
                 DOMPurify.sanitize(data.stats.isEnforcingWhitelist.toString())
@@ -230,7 +253,6 @@ const tick = async (data) => {
             data.status == "shutdown"
         ) {
             $("#playersStats").text("");
-            $("#serverVersion").text("");
             $("#framerateStats").text("");
         } else {
             if (data.hasOwnProperty("savegames")) {
@@ -665,41 +687,45 @@ $(".fa-download").click(function (e) {
 
 $("#saveGameBtn").click(function (e) {
     e.preventDefault();
-    statusMsg("saving");
-    $.ajax({
-        type: "POST",
-        url: apiURL + "/savegame",
-        dataType: "json",
-        success: function (result) {},
-        error: function (result) {
-            console.log(result);
-            alert("Error");
-        },
-    });
+    if (isRconReady){
+        statusMsg("saving");
+        $.ajax({
+            type: "POST",
+            url: apiURL + "/savegame",
+            dataType: "json",
+            success: function (result) {},
+            error: function (result) {
+                console.log(result);
+                alert("Error");
+            },
+        });
+    }
 });
 
 $("#rebootServerBtn").click(function (e) {
     e.preventDefault();
-    statusMsg("reboot");
-    $.ajax({
-        type: "POST",
-        url: apiURL + "/reboot",
-        dataType: "json",
-        success: function (result) {},
-        error: function (result) {
-            console.log(result);
-            alert("Error");
-        },
-    });
+    if (isRconReady){
+        statusMsg("reboot");
+        $.ajax({
+            type: "POST",
+            url: apiURL + "/reboot",
+            dataType: "json",
+            success: function (result) {},
+            error: function (result) {
+                console.log(result);
+                alert("Error");
+            },
+        });
+    }
 });
 
 $("#stopLauncherBtn").click(function (e) {
     e.preventDefault();
-    statusMsg("shutdown");
     let reallyShutdown = confirm(
         "Are you sure you want to shut down the launcher? It will have to be manually restarted."
     );
     if (reallyShutdown == true) {
+        statusMsg("shutdown");
         setTimeout(() => {
             statusMsg("off");
         }, 2000);
@@ -718,17 +744,19 @@ $("#stopLauncherBtn").click(function (e) {
 $("#newSaveBtn").click(function (e) {
     e.preventDefault();
     e.stopPropagation();
-    statusMsg("saving");
-    $.ajax({
-        type: "POST",
-        url: apiURL + "/newsave",
-        dataType: "json",
-        success: function (result) {},
-        error: function (result) {
-            console.log(result);
-            alert("Error");
-        },
-    });
+    if (isRconReady){
+        statusMsg("saving");
+        $.ajax({
+            type: "POST",
+            url: apiURL + "/newsave",
+            dataType: "json",
+            success: function (result) {},
+            error: function (result) {
+                console.log(result);
+                alert("Error");
+            },
+        });
+    }
 });
 
 const linkify = (text) => {

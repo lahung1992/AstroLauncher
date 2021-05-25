@@ -8,16 +8,17 @@ import time
 import uuid
 from contextlib import contextmanager
 
-import requests
 from IPy import IP
 
 from cogs.AstroLogging import AstroLogging
 from cogs.MultiConfig import MultiConfig
+from cogs.utils import AstroRequests
 
 
 def get_public_ip():
     url = "https://api.ipify.org?format=json"
-    x = (requests.get(url)).json()
+    x = (AstroRequests.get(url)).json()
+    AstroLogging.logPrint(x, "debug")
     return x['ip']
 
 
@@ -32,14 +33,11 @@ def valid_ip(address):
 def get_current_settings(launcher, ovrIP=False):
     curPath = launcher.astroPath
 
+    curLog = "AstroServerSettings.ini"
     confPath = os.path.join(
         curPath, r"Astro\Saved\Config\WindowsServer\AstroServerSettings.ini")
-    ovrConfig = {
-        "/Script/Astro.AstroServerSettings": {
-            "VerbosePlayerProperties": "True",
-            "HeartbeatInterval": "0"
-        }
-    }
+
+    AstroLogging.logPrint("Verifying PublicIP setting...", "debug")
     try:
         tConfig = MultiConfig().baseline(confPath, {})
         bIP = tConfig.getdict()[
@@ -54,6 +52,13 @@ def get_current_settings(launcher, ovrIP=False):
     except:
         validIP = False
 
+    ovrConfig = {
+        "/Script/Astro.AstroServerSettings": {
+            "VerbosePlayerProperties": "True",
+            "HeartbeatInterval": "0"
+        }
+    }
+
     try:
         if ovrIP:
             if launcher.launcherConfig.OverwritePublicIP or not validIP:
@@ -65,6 +70,9 @@ def get_current_settings(launcher, ovrIP=False):
         AstroLogging.logPrint("Could not update PublicIP!", t)
 
     try:
+        curLog = "AstroServerSettings.ini"
+        AstroLogging.logPrint(
+            "Forcing standardized settings in AstroServerSettings.ini...", "debug")
         MultiConfig().overwrite_with(confPath, ovrConfig)
 
         baseConfig = {
@@ -75,7 +83,7 @@ def get_current_settings(launcher, ovrIP=False):
                 "bWaitForPlayersBeforeShutdown": "False",
                 "PublicIP": "",
                 "ServerName": "Astroneer Dedicated Server",
-                "MaximumPlayerCount": "12",
+                "MaximumPlayerCount": "8",
                 "OwnerName": "",
                 "OwnerGuid": "",
                 "PlayerActivityTimeout": "0",
@@ -93,6 +101,8 @@ def get_current_settings(launcher, ovrIP=False):
                 "HeartbeatInterval": "0"
             }
         }
+        AstroLogging.logPrint(
+            "Baselining AstroServerSettings.ini...", "debug")
         config = MultiConfig().baseline(confPath, baseConfig)
 
         settings = config.getdict()['/Script/Astro.AstroServerSettings']
@@ -104,20 +114,31 @@ def get_current_settings(launcher, ovrIP=False):
             "/Script/OnlineSubsystemUtils.IpNetDriver": {
                 "MaxClientRate": "1000000",
                 "MaxInternetClientRate": "1000000"
+            },
+            '/Game/ChatMod/ChatManager.ChatManager_C': {
+                "WebhookUrl": f"\"http://localhost/api/{launcher.launcherConfig.RODataURL}\""
             }
         }
+        curLog = "Engine.ini"
+        AstroLogging.logPrint("Baselining Engine.ini...", "debug")
         config = MultiConfig().baseline(os.path.join(
             curPath, r"Astro\Saved\Config\WindowsServer\Engine.ini"), baseConfig)
         # print(settings)
-        settings.update(config.getdict()['URL'])
+        EngineINI = config.getdict()
+        settings.update(EngineINI['URL'])
+        if type(EngineINI['URL']['Port']) == list:
+            AstroLogging.logPrint("Duplicate Ports detected! Please only list one Port.", "critical")
+            raise TypeError
         # print(settings)
         return settings
-    except:
+    except Exception as e:
+        AstroLogging.logPrint(f"Error parsing {curLog} file!", "critical")
         AstroLogging.logPrint("Could not retrieve INI settings!", "critical")
         AstroLogging.logPrint(
             "Please ensure everything is correctly formatted...", "critical")
         AstroLogging.logPrint(
             "or delete the INI and allow the launcher to recreate it!", "critical")
+        AstroLogging.logPrint(e, "critical", True)
         try:
             launcher.DedicatedServer.kill_server()
         except:
@@ -162,6 +183,33 @@ def socket_server(port, secret, tcp):
     except:
         return False
 
+def socket_server2(port):
+    try:
+        serversocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        serversocket.settimeout(10)
+        # bind the socket to a public host,
+        # and a well-known port
+        serversocket.bind(("0.0.0.0", port))
+        # become a server socket
+        while 1:
+            # accept connections from outside
+            connection = None
+            while True:
+                data, address = serversocket.recvfrom(32)
+                #print(address)
+
+                bytesData = bytes([0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08])
+                if data == bytesData:
+                    serversocket.sendto(b"Hello from AstroLauncher", address)
+                    serversocket.close()
+                    return True
+                else:
+                    return False
+    except Exception as e:
+        #print(e)
+        return False
+
 
 def socket_client(ip, port, secret, tcp):
     try:
@@ -196,3 +244,17 @@ def test_network(ip, port, tcp):
                          args=(ip, port, secretPhrase, tcp))
     x.start()
     return socket_server(port, secretPhrase, tcp)
+
+
+def test_nonlocal(ip, port):
+    x = threading.Thread(target=socket_server2, args=(port,))
+    x.start()
+    try:
+        r = (AstroRequests.post(f"https://servercheck.spycibot.com/api?ip_port={ip}:{port}", timeout=10)).json()
+    except:
+        AstroLogging.logPrint("Unable to verify outside connectivity.", "warning")
+        AstroLogging.logPrint("Connection to external service failed.", "warning")
+        return False
+    
+    AstroLogging.logPrint(r, "debug")
+    return r['Server']

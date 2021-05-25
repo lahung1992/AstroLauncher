@@ -1,7 +1,6 @@
 
 import json
 import os
-
 import chardet
 
 _default_dict = dict
@@ -85,7 +84,8 @@ class MultiConfig():
         ovrConfig.read_dict(overwriteDict)
         newConfig = fileConfig.update(ovrConfig.getdict())
 
-        with open(filePath, 'w') as configfile:
+        encoding = MultiConfig.get_encoding(filePath)
+        with open(filePath, 'w', encoding=encoding) as configfile:
             newConfig.write(configfile)
         return newConfig
 
@@ -96,7 +96,8 @@ class MultiConfig():
         fileConfig.read(filePath)
         newConfig = baseConfig.update(fileConfig.getdict())
 
-        with open(filePath, 'w') as configfile:
+        encoding = MultiConfig.get_encoding(filePath)
+        with open(filePath, 'w', encoding=encoding) as configfile:
             newConfig.write(configfile)
         return newConfig
 
@@ -112,9 +113,10 @@ class MultiConfig():
         pathname = os.path.dirname(filePath)
         if pathname and not os.path.exists(pathname):
             os.makedirs(pathname)
-        with open(filePath, 'a+'):
+        with open(filePath, 'a+', encoding="utf_8"):
             pass
-        rawdata = open(filePath, 'rb').read()
+        with open(filePath, 'rb') as fP:
+            rawdata = fP.read()
         result = chardet.detect(rawdata)
         charenc = result['encoding']
         return charenc

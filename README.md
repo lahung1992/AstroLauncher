@@ -5,11 +5,13 @@
 [![Issues][issues-shield]][issues-url]
 [![MIT License][license-shield]][license-url]
 
-
 <br />
 <p align="center">
   <img src="https://raw.githubusercontent.com/ricky-davis/AstroLauncher/master/assets/astrolauncherlogo.ico" width="128px">
   <h3 align="center">AstroLauncher - Dedicated Server Launcher</h3>
+  <p align="center">
+    An all-in-one server management tool for Astroneer Dedicated Servers.
+  </p>
 
   <p align="center">
     <a href="https://github.com/ricky-davis/AstroLauncher/issues">AstroLauncher Bugs</a>
@@ -26,7 +28,6 @@
 - [Table of Contents](#table-of-contents)
 - [Overview](#overview)
 - [What does it do?](#what-does-it-do)
-- [TODO](#todo)
 - [INI File options](#ini-file-options)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
@@ -43,29 +44,31 @@ This tool is perfect for you if you are hosting your own dedicated server for As
 
 ## What does it do?
 
-1. Verifies your network settings to check for Port Forwarding/NAT Loopback
-2. Automatically sets up the base Config files
-3. Fixes the double server problem in the server list
-4. Starts, and automatically restarts the server
-5. Displays when users join/leave the server
-6. Keeps a log of everything in the logs folder
-7. Auto Restart every X hours
-8. Backup Retention for X hours
-9. Web Interface w/ login to monitor server data, force saves and restarts, and manage users (kick, ban, whitelist, admin)
+1. Automatic initial download and updating of your server to the latest version!
+2. Verifies your network settings to check for Port Forwarding/NAT Loopback
+3. Automatically sets up the base Config files
+4. Fixes the double server problem in the server list
+5. Starts, and automatically restarts the server
+6. Displays when users join/leave the server
+7. Keeps a log of everything in the logs folder
+8. Ability to send all logs to a Discord webhook!
+9. Auto Restart every X hours
+10. Backup Retention for X hours
+11. Web Interface w/ login to monitor server data, force saves and restarts, and manage users (kick, ban, whitelist, admin)
 
-## TODO
-
-1. Detect servers running on same port
-2. Refactor error handling to be more verbose
 
 ## INI File options
 
 Below are the descriptions and defaults for the INI file options. Do not copy/paste this into the INI file, allow the INI file to be automatically generated. Every option must be present and set, and there must be no comments or extra options.
-```python
-# Disables Auto Update -- Notifies but does not download
-DisableAutoUpdate = False
 
-# Allows the launcher to autoUpdate every time the server restarts
+```python
+# Enables/Disables Auto Update for the Launcher
+AutoUpdateLauncherSoftware = True
+
+# Enables/Disables Auto Update for the Server.
+AutoUpdateServerSoftware = True
+
+# Allows the launcher and server to auto update every time the server restarts
 UpdateOnServerRestart = True
 
 # Disable the server console popup window.
@@ -74,11 +77,18 @@ HideServerConsoleWindow = False
 # Disable the Launcher console popup window.
 HideLauncherConsoleWindow = False
 
+
+
 # Specifies how often the launcher will check for players joining/leaving
 ServerStatusFrequency = 2
 
 # Specifies how often the launcher will check for server registration status
 PlayfabAPIFrequency = 2
+
+# How many times to allow Playfab to fail before restarting the server
+HeartBeatFailRestartServer = 8
+
+
 
 # Disable Backup Retention
 DisableBackupRetention = False
@@ -89,6 +99,8 @@ BackupRetentionPeriodHours= 72
 # Location to backup the save files to
 BackupRetentionFolderLocation = Astro\Saved\Backup\LauncherBackups
 
+
+
 # Enable auto restart
 EnableAutoRestart = False
 
@@ -98,6 +110,8 @@ AutoRestartSyncTimestamp = 00:00
 
 # After the first restart specified above, how often do you want to restart?
 AutoRestartEveryHours = 24
+
+
 
 # Disable the Port Forward / NAT Loopback check on startup
 DisableNetworkCheck = False
@@ -111,6 +125,22 @@ ShowServerFPSInConsole = True
 # When launched in Administrator Mode, Astro Launcher will attempt to automatically configure the firewall settings
 AdminAutoConfigureFirewall = True
 
+# How long to keep server logs before removing them. This does not control debug logs.
+LogRetentionDays = 7
+
+
+
+# Discord Webhook URL to display AstroLauncher console data in a discord channel
+DiscordWebHookURL: str = ""
+
+# Discord Webhook Log Level, all / cmd / chat
+DiscordWebHookLevel: str = "cmd"
+
+# This is the URL the webserver serves to interact with the webhook.
+RODataURL: str = secrets.token_hex(16)
+
+
+
 # Disable the Web Management Server
 DisableWebServer = False
 
@@ -119,6 +149,9 @@ WebServerPort = 5000
 
 # Automatically generated SHA256 password hash for the admin panel in the webserver
 WebServerPasswordHash =
+
+# The Base URL that the Web Server hosts at. '/astroneer' would be https://example.com/astroneer/ . Must start with and end with a /
+WebServerBaseURL = /
 
 # Enable HTTPS for the webserver. If no/wrong Cert/Key files are specified, defaults to False
 EnableWebServerSSL = False
@@ -130,6 +163,8 @@ SSLPort = 443
 SSLCertFile =
 SSLKeyFile =
 
+
+
 # CPU Affinity - Specify logical cores to run on. Automatically chooses if empty.
 # ex:
 #  CPUAffinity=0,1,3,5,9
@@ -137,12 +172,17 @@ CPUAffinity =
 
 ```
 
-
 <!-- GETTING STARTED -->
 
 ## Getting Started
 
-To get a local copy up and running follow these simple steps or check the [Latest Release](https://github.com/ricky-davis/AstroLauncher/releases/latest) for a download of the executable.
+**Recommended: Most people will want to just run the .exe, check out the [Latest Release](https://github.com/ricky-davis/AstroLauncher/releases/latest) for a download of the executable.**
+
+
+<br/>
+To get a local "from-source" copy up and running follow these simple steps:
+<br/>
+<br/>
 
 ### Prerequisites
 
@@ -209,7 +249,9 @@ pipenv install -d
 ```sh
 pyinstaller AstroLauncher.py -F --add-data "assets;./assets" --icon=assets/astrolauncherlogo.ico
 ```
+
 or just run the BuildEXE.py which automatically cleans up afterwards
+
 ```sh
 python BuildEXE.py
 ```
@@ -245,22 +287,20 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 Ricky Davis - Discord: @Spyci#0001
 
-If you have any questions you can DM me, or preferrably, join the [Astroneer discord] (discord.gg/Astroneer) and ask in the #self_host_talk channel
+If you have any questions you can join the [Astroneer discord] (discord.gg/Astroneer) and ask in the #self_host_talk channel
 
 Project Link: [https://github.com/ricky-davis/AstroLauncher](https://github.com/ricky-davis/AstroLauncher)
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 
-[Astroneer discord]: https://discord.com/invite/astroneer
+[astroneer discord]: https://discord.com/invite/astroneer
 [contributors-shield]: https://img.shields.io/github/contributors/ricky-davis/AstroLauncher.svg?style=flat-square
 [contributors-url]: https://github.com/ricky-davis/AstroLauncher/graphs/contributors
 [forks-shield]: https://img.shields.io/github/forks/ricky-davis/AstroLauncher.svg?style=flat-square
 [forks-url]: https://github.com/ricky-davis/AstroLauncher/network/members
-
-[downloads-shield]:https://img.shields.io/github/downloads/ricky-davis/AstroLauncher/total
-[downloads-url]:https://github.com/ricky-davis/AstroLauncher/releases/latest
-
+[downloads-shield]: https://img.shields.io/github/downloads/ricky-davis/AstroLauncher/total
+[downloads-url]: https://github.com/ricky-davis/AstroLauncher/releases/latest
 [stars-shield]: https://img.shields.io/github/stars/ricky-davis/AstroLauncher.svg?style=flat-square
 [stars-url]: https://github.com/ricky-davis/AstroLauncher/stargazers
 [issues-shield]: https://img.shields.io/github/issues/ricky-davis/AstroLauncher.svg?style=flat-square
