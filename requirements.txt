@@ -1,7 +1,7 @@
 -i https://pypi.org/simple
 altgraph==0.17
 asyncio==3.4.3
-certifi==2020.6.20
+certifi==2023.7.22
 chardet==3.0.4
 colorama==0.4.3 ; sys_platform == 'win32'
 colorlog==4.2.1
