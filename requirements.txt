@@ -16,7 +16,7 @@ packaging==21.3
 pathvalidate==2.5.1
 psutil==5.9.1
 pyinstaller-hooks-contrib==2022.8; python_version >= '3.7'
-pyinstaller==5.3
+pyinstaller==5.8.0
 pypakparser==1.2.0
 pyparsing==3.0.9; python_full_version >= '3.6.8'
 setuptools==63.3.0; python_version >= '3.7'
